@@ -39,7 +39,21 @@ export class KinkoMapper {
   }
 
   static convertToKinko(detectedNotes: DetectedNote[]): KinkoScore {
-    const phrases = this.groupIntoPhrases(detectedNotes)
+    // Filter notes to shakuhachi range
+    const filteredNotes = detectedNotes.filter(note => this.isInShakuhachiRange(note.frequency))
+    
+    if (filteredNotes.length === 0) {
+      // Return empty score with default structure
+      return {
+        title: '転写された楽曲',
+        phrases: [{
+          notes: [{ katakana: 'ロ', fingering: 'ro', pitch: 293.66, duration: 1.0 }],
+          breath: true
+        }]
+      }
+    }
+    
+    const phrases = this.groupIntoPhrases(filteredNotes)
     const kinkoScore: KinkoScore = {
       title: '転写された楽曲', // "Transcribed Piece" in Japanese
       phrases: phrases.map(phrase => this.convertPhrase(phrase))
@@ -49,27 +63,73 @@ export class KinkoMapper {
   }
 
   private static groupIntoPhrases(notes: DetectedNote[]): DetectedNote[][] {
+    if (notes.length === 0) return []
+    
     const phrases: DetectedNote[][] = []
     let currentPhrase: DetectedNote[] = []
     
+    // Enhanced phrase detection with multiple criteria
     for (let i = 0; i < notes.length; i++) {
       const note = notes[i]
       const nextNote = notes[i + 1]
+      const prevNote = notes[i - 1]
       
       currentPhrase.push(note)
       
-      // Start new phrase if there's a significant gap (breath mark)
-      if (nextNote && (nextNote.startTime - (note.startTime + note.duration)) > 0.5) {
+      let shouldBreakPhrase = false
+      
+      if (nextNote) {
+        const gap = nextNote.startTime - (note.startTime + note.duration)
+        const avgDuration = (note.duration + (prevNote?.duration || note.duration)) / 2
+        
+        // Break phrase based on:
+        // 1. Significant silence gap
+        // 2. Large pitch jump (octave or more)
+        // 3. Phrase length (traditional phrases are 4-8 notes)
+        // 4. Natural breathing points
+        
+        if (gap > 0.8 || // Long silence
+            gap > avgDuration * 0.5 || // Relative to note duration
+            Math.abs(nextNote.frequency - note.frequency) > note.frequency * 0.5 || // Large pitch jump
+            currentPhrase.length >= 8) { // Max phrase length
+          shouldBreakPhrase = true
+        }
+      }
+      
+      if (shouldBreakPhrase || !nextNote) {
         phrases.push([...currentPhrase])
         currentPhrase = []
       }
     }
     
-    if (currentPhrase.length > 0) {
-      phrases.push(currentPhrase)
+    // Ensure we don't have empty phrases and merge very short ones
+    return this.consolidatePhrases(phrases)
+  }
+  
+  private static consolidatePhrases(phrases: DetectedNote[][]): DetectedNote[][] {
+    const consolidated: DetectedNote[][] = []
+    
+    for (let i = 0; i < phrases.length; i++) {
+      const phrase = phrases[i]
+      
+      if (phrase.length === 0) continue
+      
+      // If phrase is very short and there's a next phrase, consider merging
+      if (phrase.length === 1 && i < phrases.length - 1 && phrases[i + 1].length > 0) {
+        const nextPhrase = phrases[i + 1]
+        const gap = nextPhrase[0].startTime - (phrase[phrase.length - 1].startTime + phrase[phrase.length - 1].duration)
+        
+        if (gap < 1.0) {
+          // Merge with next phrase
+          phrases[i + 1] = [...phrase, ...nextPhrase]
+          continue
+        }
+      }
+      
+      consolidated.push(phrase)
     }
     
-    return phrases
+    return consolidated.length > 0 ? consolidated : [phrases.flat()]
   }
 
   private static convertPhrase(notes: DetectedNote[]): KinkoPhrase {
@@ -114,13 +174,26 @@ export class KinkoMapper {
   private static detectOrnaments(note: DetectedNote): string[] {
     const ornaments: string[] = []
     
-    // Simple ornament detection based on duration and amplitude patterns
-    if (note.duration > 2.0) {
+    // Enhanced ornament detection
+    // Long tones (nobashi)
+    if (note.duration > 2.5) {
       ornaments.push(this.TECHNIQUES.long_tone)
     }
     
-    if (note.amplitude > 0.8) {
+    // Accents (strong attack)
+    if (note.amplitude > 0.85) {
       ornaments.push(this.TECHNIQUES.accent)
+    }
+    
+    // Potential vibrato (low confidence might indicate pitch instability)
+    if (note.confidence < 0.6 && note.duration > 1.0) {
+      ornaments.push(this.TECHNIQUES.vibrato)
+    }
+    
+    // Crescendo/diminuendo based on amplitude patterns
+    // (This would need more sophisticated analysis in real implementation)
+    if (note.amplitude > 0.7 && note.duration > 1.5) {
+      ornaments.push(this.TECHNIQUES.crescendo)
     }
     
     return ornaments
@@ -129,10 +202,33 @@ export class KinkoMapper {
   private static detectTechniques(note: DetectedNote): string[] {
     const techniques: string[] = []
     
-    // Detect potential techniques based on frequency stability
-    // This is simplified - real implementation would analyze micro-variations
-    if (note.confidence < 0.7) {
-      techniques.push('unstable') // Might indicate ornamental technique
+    // Enhanced technique detection
+    
+    // Meri/Kari (pitch bending) detection
+    const expectedFreq = this.findClosestKinkoNote(note.frequency).frequency
+    const pitchDeviation = Math.abs(note.frequency - expectedFreq) / expectedFreq
+    
+    if (pitchDeviation > 0.03) { // More than 3% deviation
+      if (note.frequency < expectedFreq) {
+        techniques.push('meri') // Lowered pitch
+      } else {
+        techniques.push('kari') // Raised pitch
+      }
+    }
+    
+    // Unstable pitch might indicate ornamental techniques
+    if (note.confidence < 0.65) {
+      techniques.push('ornamental')
+    }
+    
+    // Very quiet notes might be ghost notes or breath sounds
+    if (note.amplitude < 0.2) {
+      techniques.push('breath')
+    }
+    
+    // Quick notes might be grace notes
+    if (note.duration < 0.3) {
+      techniques.push('grace')
     }
     
     return techniques

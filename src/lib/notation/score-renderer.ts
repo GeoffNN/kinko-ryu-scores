@@ -188,9 +188,14 @@ export class KinkoScoreRenderer {
   private getTechniqueIndicator(technique: string): string {
     const indicators: { [key: string]: string } = {
       vibrato: '～',
-      glissando: '∿',
+      glissando: '∿', 
       accent: '＞',
-      unstable: '◦'
+      unstable: '◦',
+      meri: '↓',      // Pitch lowered
+      kari: '↑',      // Pitch raised
+      ornamental: '◯', // General ornamental technique
+      breath: '◆',     // Breath sound
+      grace: '♪'       // Grace note
     }
     return indicators[technique] || '•'
   }

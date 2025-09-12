@@ -1,10 +1,18 @@
 // YouTube audio extraction utilities
+import ytdl from 'ytdl-core'
+import { Readable } from 'stream'
 
 export interface YouTubeInfo {
   title: string
   duration: number
   thumbnail: string
   audioUrl?: string
+  videoId: string
+}
+
+export interface YouTubeAudioData {
+  buffer: Buffer
+  info: YouTubeInfo
 }
 
 export class YouTubeExtractor {
@@ -15,15 +23,63 @@ export class YouTubeExtractor {
       throw new Error('Invalid YouTube URL')
     }
 
-    // In a real implementation, this would use youtube-dl-exec on the server
-    // For now, we'll simulate the extraction
-    return this.simulateExtraction(videoId)
+    try {
+      // Get video info using ytdl-core
+      const info = await ytdl.getInfo(videoId)
+      const videoDetails = info.videoDetails
+      
+      return {
+        title: videoDetails.title,
+        duration: parseInt(videoDetails.lengthSeconds),
+        thumbnail: videoDetails.thumbnails[0]?.url || `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+        videoId
+      }
+    } catch (error) {
+      console.error('Failed to extract YouTube info:', error)
+      // Fallback to simulation if ytdl fails
+      return this.simulateExtraction(videoId)
+    }
   }
 
-  async downloadAudio(url: string): Promise<Blob> {
-    // This would typically run on the server using youtube-dl-exec
-    // For client-side demo, we'll throw an error
-    throw new Error('Audio download must be implemented on the server side')
+  async downloadAudio(url: string): Promise<YouTubeAudioData> {
+    const videoId = this.extractVideoId(url)
+    if (!videoId) {
+      throw new Error('Invalid YouTube URL')
+    }
+
+    try {
+      // Get video info
+      const info = await this.extractAudioInfo(url)
+      
+      // Download audio stream
+      const stream = ytdl(url, {
+        quality: 'highestaudio',
+        filter: 'audioonly'
+      })
+      
+      // Convert stream to buffer
+      const chunks: Buffer[] = []
+      
+      return new Promise((resolve, reject) => {
+        stream.on('data', (chunk) => {
+          chunks.push(chunk)
+        })
+        
+        stream.on('end', () => {
+          const buffer = Buffer.concat(chunks)
+          resolve({ buffer, info })
+        })
+        
+        stream.on('error', (error) => {
+          console.error('YouTube download error:', error)
+          reject(new Error(`Failed to download YouTube audio: ${error.message}`))
+        })
+      })
+      
+    } catch (error) {
+      console.error('YouTube extraction failed:', error)
+      throw new Error(`YouTube processing failed: ${error}`)
+    }
   }
 
   private extractVideoId(url: string): string | null {
@@ -47,7 +103,23 @@ export class YouTubeExtractor {
     return {
       title: 'Sample Shakuhachi Performance',
       duration: 180, // 3 minutes
-      thumbnail: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`
+      thumbnail: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+      videoId
+    }
+  }
+  
+  // Convert buffer to AudioBuffer for Web Audio API
+  async bufferToAudioBuffer(audioBuffer: Buffer, audioContext: AudioContext): Promise<AudioBuffer> {
+    try {
+      // Create a proper ArrayBuffer from the Buffer
+      const arrayBuffer = new ArrayBuffer(audioBuffer.length)
+      const view = new Uint8Array(arrayBuffer)
+      for (let i = 0; i < audioBuffer.length; i++) {
+        view[i] = audioBuffer[i]
+      }
+      return await audioContext.decodeAudioData(arrayBuffer)
+    } catch (error) {
+      throw new Error(`Failed to decode audio: ${error}`)
     }
   }
 

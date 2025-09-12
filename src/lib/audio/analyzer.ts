@@ -199,25 +199,149 @@ export class AudioAnalyzer {
   }
 
   private async detectTempo(audioBuffer: AudioBuffer): Promise<number> {
-    // Simplified tempo detection
-    // In a real implementation, this would use onset detection and beat tracking
-    return 120 // Default tempo
+    // Enhanced tempo detection using onset detection
+    const channelData = audioBuffer.getChannelData(0)
+    const sampleRate = audioBuffer.sampleRate
+    const frameSize = 1024
+    const hopSize = 512
+    
+    // Detect onsets using spectral flux
+    const onsets = this.detectOnsets(channelData, sampleRate, frameSize, hopSize)
+    
+    if (onsets.length < 4) {
+      return 100 // Default slow tempo for traditional music
+    }
+    
+    // Calculate intervals between onsets
+    const intervals = []
+    for (let i = 1; i < onsets.length; i++) {
+      intervals.push(onsets[i] - onsets[i-1])
+    }
+    
+    // Find median interval
+    intervals.sort((a, b) => a - b)
+    const medianInterval = intervals[Math.floor(intervals.length / 2)]
+    
+    // Convert to BPM (beats per minute)
+    const bpm = Math.round(60 / medianInterval)
+    
+    // Clamp to reasonable range for traditional music
+    return Math.max(60, Math.min(180, bpm))
+  }
+  
+  private detectOnsets(buffer: Float32Array, sampleRate: number, frameSize: number, hopSize: number): number[] {
+    const onsets: number[] = []
+    const spectralFlux: number[] = []
+    let previousSpectrum: Float32Array | null = null
+    
+    for (let i = 0; i < buffer.length - frameSize; i += hopSize) {
+      const frame = buffer.slice(i, i + frameSize)
+      const spectrum = this.computeSpectrum(frame)
+      
+      if (previousSpectrum) {
+        let flux = 0
+        for (let j = 0; j < spectrum.length; j++) {
+          const diff = spectrum[j] - previousSpectrum[j]
+          if (diff > 0) flux += diff
+        }
+        spectralFlux.push(flux)
+      }
+      
+      previousSpectrum = spectrum
+    }
+    
+    // Peak picking on spectral flux
+    const threshold = this.calculateAdaptiveThreshold(spectralFlux)
+    
+    for (let i = 1; i < spectralFlux.length - 1; i++) {
+      if (spectralFlux[i] > threshold &&
+          spectralFlux[i] > spectralFlux[i-1] &&
+          spectralFlux[i] > spectralFlux[i+1]) {
+        onsets.push((i * hopSize) / sampleRate)
+      }
+    }
+    
+    return onsets
+  }
+  
+  private computeSpectrum(frame: Float32Array): Float32Array {
+    // Simple magnitude spectrum using FFT approximation
+    const spectrum = new Float32Array(frame.length / 2)
+    
+    for (let i = 0; i < spectrum.length; i++) {
+      let real = 0, imag = 0
+      
+      for (let j = 0; j < frame.length; j++) {
+        const angle = -2 * Math.PI * i * j / frame.length
+        real += frame[j] * Math.cos(angle)
+        imag += frame[j] * Math.sin(angle)
+      }
+      
+      spectrum[i] = Math.sqrt(real * real + imag * imag)
+    }
+    
+    return spectrum
+  }
+  
+  private calculateAdaptiveThreshold(spectralFlux: number[]): number {
+    const mean = spectralFlux.reduce((sum, val) => sum + val, 0) / spectralFlux.length
+    const variance = spectralFlux.reduce((sum, val) => sum + (val - mean) ** 2, 0) / spectralFlux.length
+    const stdDev = Math.sqrt(variance)
+    
+    return mean + stdDev * 0.5 // Adaptive threshold
   }
 
   private async detectKey(notes: DetectedNote[]): Promise<string> {
-    // Simplified key detection based on pitch histogram
-    const pitchHistogram: { [key: string]: number } = {}
+    if (notes.length === 0) return 'D' // Default for shakuhachi
     
+    // Enhanced key detection using pitch class histogram
+    const pitchClassHistogram: { [key: string]: number } = {}
+    
+    // Count pitch classes (ignore octaves)
     for (const note of notes) {
-      pitchHistogram[note.pitch] = (pitchHistogram[note.pitch] || 0) + 1
+      const pitchClass = note.pitch
+      pitchClassHistogram[pitchClass] = (pitchClassHistogram[pitchClass] || 0) + note.duration
     }
     
-    // Find most common pitch as a rough key estimate
-    const mostCommonPitch = Object.keys(pitchHistogram).reduce((a, b) => 
-      pitchHistogram[a] > pitchHistogram[b] ? a : b
-    )
+    // Shakuhachi-specific key detection
+    // Check for common shakuhachi scales
+    const shakuhachiKeys = ['D', 'Eb', 'F', 'G', 'A', 'Bb']
     
-    return mostCommonPitch || 'C'
+    let bestKey = 'D'
+    let bestScore = 0
+    
+    for (const key of shakuhachiKeys) {
+      const score = this.calculateKeyScore(pitchClassHistogram, key)
+      if (score > bestScore) {
+        bestScore = score
+        bestKey = key
+      }
+    }
+    
+    return bestKey
+  }
+  
+  private calculateKeyScore(histogram: { [key: string]: number }, key: string): number {
+    // Define scale patterns for shakuhachi in different keys
+    const scalePatterns: { [key: string]: string[] } = {
+      'D': ['D', 'F', 'G', 'A', 'C'],
+      'Eb': ['Eb', 'Gb', 'Ab', 'Bb', 'Db'],
+      'F': ['F', 'Ab', 'Bb', 'C', 'Eb'],
+      'G': ['G', 'Bb', 'C', 'D', 'F'],
+      'A': ['A', 'C', 'D', 'E', 'G'],
+      'Bb': ['Bb', 'Db', 'Eb', 'F', 'Ab']
+    }
+    
+    const pattern = scalePatterns[key] || scalePatterns['D']
+    let score = 0
+    
+    for (const pitch of pattern) {
+      if (histogram[pitch]) {
+        score += histogram[pitch]
+      }
+    }
+    
+    return score
   }
 
   private calculateOverallConfidence(notes: DetectedNote[]): number {

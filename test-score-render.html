@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kinko-ryu Score Renderer Test</title>
+    <style>
+        body {
+            font-family: 'Noto Sans CJK JP', 'Hiragino Mincho ProN', serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .score-container {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin: 20px 0;
+        }
+        
+        .score-title {
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+        
+        .score-subtitle {
+            text-align: center;
+            font-size: 16px;
+            color: #7f8c8d;
+            margin-bottom: 30px;
+        }
+        
+        .phrase {
+            margin: 30px 0;
+            padding: 20px;
+            border-left: 4px solid #3498db;
+            background-color: #f8f9fa;
+        }
+        
+        .phrase-title {
+            font-weight: bold;
+            color: #2980b9;
+            margin-bottom: 15px;
+        }
+        
+        .notation-line {
+            font-family: 'Noto Sans CJK JP', monospace;
+            font-size: 20px;
+            line-height: 1.8;
+            text-align: right;
+            direction: rtl;
+            unicode-bidi: bidi-override;
+        }
+        
+        .ornament {
+            color: #e74c3c;
+            font-size: 16px;
+            vertical-align: super;
+        }
+        
+        .katakana {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin: 0 8px;
+        }
+        
+        .technique {
+            color: #8e44ad;
+            font-size: 14px;
+            vertical-align: sub;
+        }
+        
+        .duration-mark {
+            color: #27ae60;
+            font-size: 18px;
+        }
+        
+        .breath-mark {
+            text-align: center;
+            font-size: 20px;
+            color: #95a5a6;
+            margin: 15px 0;
+        }
+        
+        .fingering-chart {
+            margin-top: 30px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        
+        .fingering-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #ecf0f1;
+        }
+        
+        .note-name {
+            font-weight: bold;
+            width: 100px;
+        }
+        
+        .hole-pattern {
+            font-family: monospace;
+            font-size: 16px;
+            width: 100px;
+        }
+        
+        .description {
+            color: #7f8c8d;
+            flex: 1;
+        }
+        
+        canvas {
+            border: 1px solid #ddd;
+            margin: 20px 0;
+            background: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="score-container">
+        <div class="score-title">尺八楽譜 (Shakuhachi Score)</div>
+        <div class="score-subtitle">Kinko-ryu Notation Demonstration</div>
+        
+        <div class="phrase">
+            <div class="phrase-title">第一句 (Phrase 1): Slow, meditative</div>
+            <div class="notation-line">
+                <span class="ornament">—</span>
+                <span class="katakana">ロ</span>
+                <span class="technique">(meri)</span>
+                <span class="duration-mark">——</span>
+                
+                <span class="katakana">ツ</span>
+                
+                <span class="ornament">＞</span>
+                <span class="katakana">レ</span>
+                <span class="technique">(kari)</span>
+                <span class="duration-mark">—</span>
+            </div>
+            <div class="breath-mark">、(息継ぎ)</div>
+        </div>
+        
+        <div class="phrase">
+            <div class="phrase-title">第二句 (Phrase 2): Flowing</div>
+            <div class="notation-line">
+                <span class="katakana">レ◯</span>
+                <span class="technique">(meri)</span>
+                
+                <span class="ornament">—</span>
+                <span class="katakana">リ</span>
+                
+                <span class="ornament">⌒</span>
+                <span class="katakana">チ</span>
+                <span class="technique">(ornamental)</span>
+            </div>
+            <div class="breath-mark">、(息継ぎ)</div>
+        </div>
+        
+        <div class="phrase">
+            <div class="phrase-title">第三句 (Phrase 3): High register, powerful</div>
+            <div class="notation-line">
+                <span class="ornament">＞</span>
+                <span class="katakana">工</span>
+                
+                <span class="ornament">⌒</span>
+                <span class="katakana">乙</span>
+                <span class="technique">(ornamental)</span>
+                <span class="duration-mark">—</span>
+                
+                <span class="ornament">—＜</span>
+                <span class="katakana">口</span>
+                <span class="duration-mark">——</span>
+            </div>
+            <div class="breath-mark">、(息継ぎ)</div>
+        </div>
+    </div>
+
+    <div class="fingering-chart">
+        <h3>🎯 指使い表 (Fingering Chart)</h3>
+        <div class="fingering-row">
+            <div class="note-name">ロ (ro)</div>
+            <div class="hole-pattern">●●●●●</div>
+            <div class="description">All holes closed</div>
+        </div>
+        <div class="fingering-row">
+            <div class="note-name">ツ (tsu)</div>
+            <div class="hole-pattern">○●●●●</div>
+            <div class="description">First hole open</div>
+        </div>
+        <div class="fingering-row">
+            <div class="note-name">レ (re)</div>
+            <div class="hole-pattern">○○●●●</div>
+            <div class="description">First two holes open</div>
+        </div>
+        <div class="fingering-row">
+            <div class="note-name">チ (chi)</div>
+            <div class="hole-pattern">○○○●●</div>
+            <div class="description">First three holes open</div>
+        </div>
+        <div class="fingering-row">
+            <div class="note-name">リ (ri)</div>
+            <div class="hole-pattern">○○○○●</div>
+            <div class="description">First four holes open</div>
+        </div>
+        <div class="fingering-row">
+            <div class="note-name">口 (kan-ro)</div>
+            <div class="hole-pattern">●●●●● (kan)</div>
+            <div class="description">Overblown ro</div>
+        </div>
+    </div>
+
+    <div style="text-align: center; margin-top: 40px; color: #7f8c8d;">
+        <p>Generated by AI Kinko-ryu Transcription System</p>
+        <p>Traditional Japanese shakuhachi notation preserved digitally</p>
+    </div>
+
+    <!-- Canvas for programmatic rendering -->
+    <div class="score-container">
+        <h3>Canvas-based Score Rendering</h3>
+        <canvas id="scoreCanvas" width="800" height="600"></canvas>
+    </div>
+
+    <script>
+        // Simple canvas-based score renderer
+        const canvas = document.getElementById('scoreCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Set up Japanese font
+        ctx.font = '24px "Noto Sans CJK JP", serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        // Clear canvas
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#000000';
+        
+        // Draw title
+        ctx.font = 'bold 28px "Noto Sans CJK JP", serif';
+        ctx.fillText('尺八譜 (Shakuhachi Score)', canvas.width / 2, 40);
+        
+        // Reset font
+        ctx.font = '24px "Noto Sans CJK JP", serif';
+        
+        // Draw phrase 1
+        let y = 120;
+        ctx.fillStyle = '#2980b9';
+        ctx.font = 'bold 18px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('Phrase 1: Slow, meditative', 50, y);
+        
+        // Draw notes (right to left)
+        ctx.fillStyle = '#000000';
+        ctx.font = '24px "Noto Sans CJK JP", serif';
+        ctx.textAlign = 'center';
+        
+        let x = canvas.width - 100;
+        
+        // Ornament above
+        ctx.fillStyle = '#e74c3c';
+        ctx.font = '16px "Noto Sans CJK JP", serif';
+        ctx.fillText('—', x, y + 20);
+        
+        // Main note
+        ctx.fillStyle = '#000000';
+        ctx.font = '24px "Noto Sans CJK JP", serif';
+        ctx.fillText('ロ', x, y + 40);
+        
+        // Technique below
+        ctx.fillStyle = '#8e44ad';
+        ctx.font = '14px sans-serif';
+        ctx.fillText('(meri)', x, y + 60);
+        
+        // Duration marks
+        ctx.fillStyle = '#27ae60';
+        ctx.font = '18px sans-serif';
+        ctx.fillText('——', x, y + 75);
+        
+        // Next note
+        x -= 100;
+        ctx.fillStyle = '#000000';
+        ctx.font = '24px "Noto Sans CJK JP", serif';
+        ctx.fillText('ツ', x, y + 40);
+        
+        // Next note with ornament
+        x -= 100;
+        ctx.fillStyle = '#e74c3c';
+        ctx.font = '16px "Noto Sans CJK JP", serif';
+        ctx.fillText('＞', x, y + 20);
+        
+        ctx.fillStyle = '#000000';
+        ctx.font = '24px "Noto Sans CJK JP", serif';
+        ctx.fillText('レ', x, y + 40);
+        
+        ctx.fillStyle = '#8e44ad';
+        ctx.font = '14px sans-serif';
+        ctx.fillText('(kari)', x, y + 60);
+        
+        // Breath mark
+        ctx.fillStyle = '#95a5a6';
+        ctx.font = '20px "Noto Sans CJK JP", serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('、', canvas.width / 2, y + 100);
+        
+        // Save as image function
+        function downloadScore() {
+            const link = document.createElement('a');
+            link.download = 'kinko-ryu-score.png';
+            link.href = canvas.toDataURL();
+            link.click();
+        }
+        
+        // Add download button
+        const button = document.createElement('button');
+        button.textContent = 'Download Score as PNG';
+        button.onclick = downloadScore;
+        button.style.cssText = 'margin: 10px; padding: 10px 20px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer;';
+        canvas.parentNode.appendChild(button);
+        
+        console.log('🎼 Kinko-ryu score rendered on canvas');
+        console.log('📸 Click "Download Score as PNG" to save the image');
+    </script>
+</body>
+</html>

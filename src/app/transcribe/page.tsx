@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { FileUpload } from '@/components/upload/file-upload'
 import { ProcessingStatus } from '@/components/upload/processing-status'
 import { ScoreDisplay } from '@/components/score/score-display'
@@ -17,6 +17,25 @@ export default function TranscribePage() {
   const [mode, setMode] = useState<'audio' | 'sheet' | 'result'>('audio')
   const [job, setJob] = useState<ProcessingJob | null>(null)
   const [score, setScore] = useState<KinkoScore | null>(null)
+  
+  // Check for result from homepage
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    if (urlParams.get('view') === 'result') {
+      const storedResult = sessionStorage.getItem('transcriptionResult')
+      if (storedResult) {
+        try {
+          const { job: storedJob, score: storedScore } = JSON.parse(storedResult)
+          setJob(storedJob)
+          setScore(storedScore)
+          setMode('result')
+          sessionStorage.removeItem('transcriptionResult')
+        } catch (error) {
+          console.error('Failed to load stored result:', error)
+        }
+      }
+    }
+  }, [])
 
   const handleAudioUpload = async (input: TranscriptionInput) => {
     const newJob: ProcessingJob = {
@@ -58,8 +77,42 @@ export default function TranscribePage() {
         
         setScore(kinkoScore)
         setMode('result')
+      } else if (input.type === 'youtube' && input.youtube) {
+        // Handle YouTube URL processing
+        setJob(prev => prev ? { ...prev, progress: 30 } : null)
+        
+        try {
+          const response = await fetch('/api/youtube', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: input.youtube.url })
+          })
+          
+          const data = await response.json()
+          
+          if (data.success && data.result) {
+            setJob(prev => prev ? { 
+              ...prev, 
+              status: 'completed', 
+              progress: 100,
+              result: data.result
+            } : null)
+            
+            setScore(data.result.score)
+            setMode('result')
+          } else {
+            throw new Error(data.error || 'Failed to process YouTube URL')
+          }
+        } catch (error) {
+          console.error('YouTube processing failed:', error)
+          setJob(prev => prev ? { 
+            ...prev, 
+            status: 'error', 
+            error: error instanceof Error ? error.message : 'Failed to process YouTube URL'
+          } : null)
+        }
       } else {
-        // Handle YouTube or other types
+        // Handle other types with mock data
         setTimeout(() => {
           const mockScore: KinkoScore = {
             title: 'Sample Transcription',

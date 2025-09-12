@@ -20,35 +20,93 @@ export default function Home() {
     
     setJob(newJob)
 
-    // Simulate processing for demo
-    setTimeout(() => {
-      setJob(prev => prev ? { ...prev, status: 'processing', progress: 20 } : null)
-    }, 1000)
-
-    setTimeout(() => {
-      setJob(prev => prev ? { ...prev, progress: 50 } : null)
-    }, 3000)
-
-    setTimeout(() => {
-      setJob(prev => prev ? { ...prev, progress: 80 } : null)
-    }, 5000)
-
-    setTimeout(() => {
+    try {
+      if (input.type === 'youtube' && input.youtube) {
+        // Handle YouTube URL processing
+        setJob(prev => prev ? { ...prev, status: 'processing', progress: 30 } : null)
+        
+        const response = await fetch('/api/youtube', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: input.youtube.url })
+        })
+        
+        const data = await response.json()
+        
+        if (data.success && data.result) {
+          setJob(prev => prev ? { 
+            ...prev, 
+            status: 'completed', 
+            progress: 100,
+            result: data.result
+          } : null)
+        } else {
+          throw new Error(data.error || 'Failed to process YouTube URL')
+        }
+      } else if (input.type === 'audio' && input.audio) {
+        // Handle audio file processing
+        setJob(prev => prev ? { ...prev, status: 'processing', progress: 20 } : null)
+        
+        const formData = new FormData()
+        formData.append('file', input.audio.file)
+        formData.append('type', 'audio')
+        
+        const response = await fetch('/api/transcribe', {
+          method: 'POST',
+          body: formData
+        })
+        
+        const data = await response.json()
+        
+        if (data.success && data.result) {
+          setJob(prev => prev ? { 
+            ...prev, 
+            status: 'completed', 
+            progress: 100,
+            result: data.result
+          } : null)
+        } else {
+          throw new Error(data.error || 'Failed to process audio file')
+        }
+      } else {
+        // Fallback demo for other types
+        setJob(prev => prev ? { ...prev, status: 'processing', progress: 50 } : null)
+        
+        setTimeout(() => {
+          setJob(prev => prev ? { 
+            ...prev, 
+            status: 'completed', 
+            progress: 100,
+            result: {
+              id: 'demo-result',
+              score: {
+                title: 'Demo Transcription',
+                phrases: [
+                  {
+                    notes: [
+                      { katakana: 'ロ', fingering: 'ro', pitch: 293.66, duration: 1.0 },
+                      { katakana: 'ツ', fingering: 'tsu', pitch: 349.23, duration: 1.0 },
+                      { katakana: 'レ', fingering: 're', pitch: 392.00, duration: 1.5 },
+                      { katakana: 'チ', fingering: 'chi', pitch: 440.00, duration: 2.0 }
+                    ],
+                    breath: true
+                  }
+                ]
+              },
+              confidence: 0.75,
+              processingTime: 30
+            }
+          } : null)
+        }, 2000)
+      }
+    } catch (error) {
+      console.error('Processing failed:', error)
       setJob(prev => prev ? { 
         ...prev, 
-        status: 'completed', 
-        progress: 100,
-        result: {
-          id: 'demo-result',
-          score: {
-            title: 'Transcribed Piece',
-            phrases: [],
-          },
-          confidence: 0.85,
-          processingTime: 45
-        }
+        status: 'error', 
+        error: error instanceof Error ? error.message : 'Processing failed'
       } : null)
-    }, 7000)
+    }
   }
 
   const handleDownloadPDF = async () => {
@@ -73,9 +131,15 @@ export default function Home() {
   }
 
   const handleViewScore = () => {
-    // For the main page, we could redirect to the transcribe page
-    // or implement a modal view of the score
-    alert('Score viewing feature - would show detailed score view')
+    // Redirect to transcribe page with the result
+    if (job?.result) {
+      // Store result in sessionStorage to pass to transcribe page
+      sessionStorage.setItem('transcriptionResult', JSON.stringify({
+        job,
+        score: job.result.score
+      }))
+      window.location.href = '/transcribe?view=result'
+    }
   }
 
   return (

@@ -357,6 +357,20 @@ export class EnhancedKinkoPDFGenerator {
         })
       })
     }
+    
+    // Techniques
+    if (note.techniques && note.techniques.length > 0) {
+      note.techniques.forEach((technique, index) => {
+        const indicator = this.getTechniqueIndicator(technique)
+        this.currentPage.drawText(indicator, {
+          x: x + 12,
+          y: y + 5 - (index * 8),
+          size: this.options.fontSize * 0.6,
+          font,
+          color: rgb(0.4, 0.4, 0.4) // Gray color for technique indicators
+        })
+      })
+    }
   }
 
   private getDurationMark(duration: number): string {
@@ -364,6 +378,21 @@ export class EnhancedKinkoPDFGenerator {
     if (duration >= 2.0) return '——'
     if (duration >= 1.5) return '—'
     return ''
+  }
+  
+  private getTechniqueIndicator(technique: string): string {
+    const indicators: { [key: string]: string } = {
+      vibrato: '～',
+      glissando: '∿', 
+      accent: '＞',
+      unstable: '◦',
+      meri: '↓',      // Pitch lowered
+      kari: '↑',      // Pitch raised
+      ornamental: '◯', // General ornamental technique
+      breath: '◆',     // Breath sound
+      grace: '♪'       // Grace note
+    }
+    return indicators[technique] || '•'
   }
 
   async getBlob(): Promise<Blob> {

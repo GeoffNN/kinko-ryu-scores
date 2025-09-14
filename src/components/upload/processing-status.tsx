@@ -44,6 +44,16 @@ export function ProcessingStatus({ job, onViewScore, onDownloadPDF }: Processing
     }
   }
 
+  const getErrorDetails = () => {
+    if (job.status !== 'error' || !job.errorDetails) return null
+    return job.errorDetails
+  }
+
+  const getErrorSuggestions = () => {
+    if (job.status !== 'error' || !job.errorSuggestions) return null
+    return job.errorSuggestions
+  }
+
   const getProgressText = () => {
     if (job.status === 'completed') return '100%'
     if (job.status === 'error') return 'Failed'
@@ -89,6 +99,44 @@ export function ProcessingStatus({ job, onViewScore, onDownloadPDF }: Processing
               <div className={job.progress >= 95 ? 'text-foreground' : ''}>
                 • Generating score and PDF...
               </div>
+            </div>
+          )}
+
+          {job.status === 'error' && (
+            <div className="space-y-4 pt-4 border-t">
+              {/* Error Details */}
+              {getErrorDetails() && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <h4 className="text-sm font-medium text-red-900 mb-2">Error Details</h4>
+                  <p className="text-sm text-red-800">{getErrorDetails()}</p>
+                </div>
+              )}
+
+              {/* Error Suggestions */}
+              {getErrorSuggestions() && getErrorSuggestions()!.length > 0 && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h4 className="text-sm font-medium text-blue-900 mb-2">Suggestions</h4>
+                  <ul className="text-sm text-blue-800 space-y-1">
+                    {getErrorSuggestions()!.map((suggestion: string, index: number) => (
+                      <li key={index} className="flex items-start space-x-2">
+                        <span className="text-blue-600 mt-0.5">•</span>
+                        <span>{suggestion}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* File Info (if available) */}
+              {(job.fileName || job.fileFormat) && (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <h4 className="text-sm font-medium text-gray-900 mb-2">File Information</h4>
+                  <div className="text-sm text-gray-700 space-y-1">
+                    {job.fileName && <p><strong>File:</strong> {job.fileName}</p>}
+                    {job.fileFormat && <p><strong>Format:</strong> {job.fileFormat.toUpperCase()}</p>}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

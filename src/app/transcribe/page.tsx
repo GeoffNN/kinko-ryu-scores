@@ -51,32 +51,73 @@ export default function TranscribePage() {
       setJob(prev => prev ? { ...prev, status: 'processing', progress: 20 } : null)
       
       if (input.type === 'audio' && input.audio) {
-        const analyzer = new AudioAnalyzer()
-        
-        setJob(prev => prev ? { ...prev, progress: 40 } : null)
-        const analysisResult = await analyzer.analyzeAudioFile(input.audio.file)
-        
-        setJob(prev => prev ? { ...prev, progress: 70 } : null)
-        const kinkoScore = KinkoMapper.convertToKinko(analysisResult.notes)
-        
-        kinkoScore.title = input.audio.name.replace(/\.[^/.]+$/, "")
-        kinkoScore.tempo = analysisResult.tempo
-        kinkoScore.key = analysisResult.key
-        
-        setJob(prev => prev ? { 
-          ...prev, 
-          status: 'completed', 
-          progress: 100,
-          result: {
-            id: 'transcription-result',
-            score: kinkoScore,
-            confidence: analysisResult.confidence,
-            processingTime: 45
+        // Use the API endpoint instead of direct client-side processing
+        setJob(prev => prev ? { ...prev, progress: 30 } : null)
+
+        const formData = new FormData()
+        formData.append('file', input.audio.file)
+        formData.append('type', 'audio')
+
+        try {
+          const response = await fetch('/api/transcribe', {
+            method: 'POST',
+            body: formData
+          })
+
+          const data = await response.json()
+
+          if (response.ok && data.success && data.result) {
+            setJob(prev => prev ? {
+              ...prev,
+              status: 'completed',
+              progress: 100,
+              result: data.result
+            } : null)
+
+            setScore(data.result.score)
+            setMode('result')
+          } else {
+            // Handle API error response
+            setJob(prev => prev ? {
+              ...prev,
+              status: 'error',
+              error: data.error || 'Failed to process audio file',
+              errorDetails: data.details || 'An unknown error occurred during processing.',
+              errorSuggestions: data.suggestions || [],
+              fileName: data.fileName || input.audio?.name,
+              fileFormat: data.fileFormat || input.audio?.format
+            } : null)
           }
+        } catch (error: any) {
+          console.error('Network or parsing error:', error)
+
+          // Handle network errors or JSON parsing errors
+          setJob(prev => prev ? {
+            ...prev,
+            status: 'error',
+            error: 'Network error',
+            errorDetails: 'Failed to connect to the server. Please check your internet connection and try again.',
+            errorSuggestions: [
+              'Check your internet connection',
+              'Try refreshing the page',
+              'Make sure the file is not too large (50MB limit)'
+            ],
+            fileName: input.audio?.name,
+            fileFormat: input.audio?.format
+          } : null)
+        }
+      } else {
+        // Unsupported input type
+        setJob(prev => prev ? {
+          ...prev,
+          status: 'error',
+          error: 'Unsupported input type',
+          errorDetails: 'Only audio file upload is currently supported.',
+          errorSuggestions: ['Upload an audio file (MP3, WAV, FLAC, M4A, OGG)']
         } : null)
-        
-        setScore(kinkoScore)
-        setMode('result')
+      }
+
+      /* Disabled features - only audio upload is supported
       } else if (input.type === 'youtube' && input.youtube) {
         // Handle YouTube URL processing
         setJob(prev => prev ? { ...prev, progress: 30 } : null)
@@ -145,12 +186,13 @@ export default function TranscribePage() {
           setMode('result')
         }, 3000)
       }
-      
+      */
+
     } catch (error) {
       console.error('Transcription failed:', error)
-      setJob(prev => prev ? { 
-        ...prev, 
-        status: 'error', 
+      setJob(prev => prev ? {
+        ...prev,
+        status: 'error',
         error: 'Failed to transcribe audio. Please try again.'
       } : null)
     }

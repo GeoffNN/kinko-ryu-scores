@@ -48,6 +48,10 @@ export interface KinkoScore {
     composer?: string;
     arranger?: string;
     date?: string;
+    originalFile?: string;
+    fileSize?: string;
+    format?: string;
+    estimatedDuration?: string;
   };
 }
 
@@ -64,5 +68,9 @@ export interface ProcessingJob {
   status: 'pending' | 'processing' | 'completed' | 'error';
   progress: number;
   error?: string;
+  errorDetails?: string;
+  errorSuggestions?: string[];
+  fileName?: string;
+  fileFormat?: string;
   result?: TranscriptionResult;
 }
